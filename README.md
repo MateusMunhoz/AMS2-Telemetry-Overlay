@@ -11,8 +11,8 @@ A real-time telemetry overlay for [Automobilista 2](https://www.game-automobilis
 - **Lap Timing** -- live lap time, delta to best lap (green/red), and last completed lap time
 - **Click-through** -- all windows pass mouse clicks to the game so you can keep playing normally
 - **Always on top** -- widgets stay visible over the game in borderless windowed mode
-- **Configurable layout** -- press **F6** to enter config mode and drag widgets wherever you want. Positions are saved to `overlay_config.json` and persist across sessions
-- **Reset layout** -- press **F5** during config mode to reset all widget positions to defaults
+- **Configurable layout** -- press **Ctrl+F6** to enter config mode and drag widgets wherever you want. Positions are saved to `overlay_config.json` and persist across sessions
+- **Reset layout** -- press **Ctrl+F5** during config mode to reset all widget positions to defaults
 
 ## Screenshots
 
@@ -59,9 +59,9 @@ Without this, the overlay cannot read telemetry data.
 
 | Key | Action |
 |-----|--------|
-| **F6** | Toggle config mode -- drag widgets to reposition them |
-| **F5** | Reset all widget positions to defaults (only works in config mode) |
-| **F8** | Close all widgets and exit |
+| **Ctrl+F6** | Toggle config mode -- drag widgets to reposition them |
+| **Ctrl+F5** | Reset all widget positions to defaults (only works in config mode) |
+| **Ctrl+F8** | Close all widgets and exit |
 
 ## Usage
 
@@ -71,10 +71,10 @@ Without this, the overlay cannot read telemetry data.
    - **Top-left**: lap time, delta to best lap, last lap
    - **Bottom-right**: gear, speed, RPM bar
    - **Bottom-center**: throttle/brake graph + steering wheel
-4. Press **F6** to enter config mode -- a legend appears at the top-center and widgets become draggable
+4. Press **Ctrl+F6** to enter config mode -- a legend appears at the top-center and widgets become draggable
 5. Drag each widget to your preferred position
-6. Press **F6** again to save positions and return to normal mode
-7. Press **F8** at any time to close the overlay
+6. Press **Ctrl+F6** again to save positions and return to normal mode
+7. Press **Ctrl+F8** at any time to close the overlay
 8. Right-click the system tray icon and select **Quit** to exit
 
 Widget positions are saved to `overlay_config.json` next to the executable and restored on the next launch.
