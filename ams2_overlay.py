@@ -1,15 +1,18 @@
 """
 AMS2 Telemetry Overlay
-Tecla F8 = fechar todos os overlays
+F6  = modo config (arrastar widgets)
+F8  = fechar todos os overlays
 """
 
 import ctypes
 from ctypes import wintypes
 import sys
 import traceback
+import os
+import json
 from collections import deque
 
-from PyQt5.QtCore import Qt, QTimer, QPointF, QAbstractNativeEventFilter
+from PyQt5.QtCore import Qt, QTimer, QPointF, QAbstractNativeEventFilter, QPoint
 from PyQt5.QtGui import (
     QPainter, QColor, QFont, QPen, QBrush
 )
@@ -33,7 +36,6 @@ kernel32.UnmapViewOfFile.argtypes = [wintypes.LPCVOID]
 kernel32.UnmapViewOfFile.restype  = wintypes.BOOL
 kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
 kernel32.CloseHandle.restype  = wintypes.BOOL
-kernel32.GetLastError.restype = wintypes.DWORD
 
 try:
     user32.GetWindowLongPtrW.argtypes = [wintypes.HWND, ctypes.c_int]
@@ -59,16 +61,18 @@ OFF_CURRENT_TIME = 6724
 OFF_SPLIT_TIME  = 6736
 OFF_BEST_LAP    = 6744
 
-BG_DARK     = QColor(10, 10, 10, 200)
-BG_PANEL    = QColor(12, 12, 12, 180)
-C_THROTTLE  = QColor(0, 220, 50)
-C_BRAKE     = QColor(255, 40, 40)
-C_STEERING  = QColor(100, 140, 180)
-C_TEXT      = QColor(220, 220, 220, 220)
-C_TEXT_DIM  = QColor(140, 140, 140, 160)
-C_TEXT_HI   = QColor(255, 255, 255, 240)
-C_GRID      = QColor(50, 50, 50, 120)
-C_BORDER    = QColor(70, 70, 70, 150)
+BG_DARK      = QColor(10, 10, 10, 200)
+BG_PANEL     = QColor(12, 12, 12, 180)
+BG_CONFIG    = QColor(20, 20, 30, 230)
+C_THROTTLE   = QColor(0, 220, 50)
+C_BRAKE      = QColor(255, 40, 40)
+C_STEERING   = QColor(100, 140, 180)
+C_TEXT       = QColor(220, 220, 220, 220)
+C_TEXT_DIM   = QColor(140, 140, 140, 160)
+C_TEXT_HI    = QColor(255, 255, 255, 240)
+C_GRID       = QColor(50, 50, 50, 120)
+C_BORDER     = QColor(70, 70, 70, 150)
+C_CONFIG     = QColor(255, 200, 50, 220)
 
 
 def _read_float(address, offset=0):
@@ -83,6 +87,87 @@ def _read_int32(address, offset=0):
         ctypes.POINTER(ctypes.c_int32)
     )[0]
 
+
+# =====================================================================
+#  CONFIG (persistencia de posicoes)
+# =====================================================================
+
+CONFIG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "overlay_config.json")
+_config_mode = False
+_all_overlays = []
+
+
+def _load_config():
+    try:
+        with open(CONFIG_FILE, "r") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def _save_config(cfg):
+    try:
+        with open(CONFIG_FILE, "w") as f:
+            json.dump(cfg, f, indent=2)
+    except Exception:
+        pass
+
+
+def _get_default_config():
+    screen = QApplication.primaryScreen()
+    if not screen:
+        return {}
+    sg = screen.geometry()
+    return {
+        "lap":   [sg.left(), sg.top()],
+        "dash":  [sg.right() - 190, sg.bottom() - 150],
+        "graph": [sg.left() + (sg.width() - 560) // 2, sg.bottom() - 180],
+    }
+
+
+def _config_pos(widget_id):
+    cfg = _load_config()
+    defaults = _get_default_config()
+    if widget_id in cfg:
+        return cfg[widget_id]
+    return defaults.get(widget_id, [100, 100])
+
+
+def _set_click_through(widget, enabled):
+    hwnd = int(widget.winId())
+    try:
+        cur = user32.GetWindowLongPtrW(hwnd, GWL_EXSTYLE)
+    except AttributeError:
+        cur = user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
+    if enabled:
+        new = cur | WS_EX_TRANSPARENT | WS_EX_TOPMOST
+    else:
+        new = (cur | WS_EX_TOPMOST) & ~WS_EX_TRANSPARENT
+    try:
+        user32.SetWindowLongPtrW(hwnd, GWL_EXSTYLE, new)
+    except AttributeError:
+        user32.SetWindowLongW(hwnd, GWL_EXSTYLE, new)
+
+
+def _toggle_config():
+    global _config_mode
+    _config_mode = not _config_mode
+    for ov in _all_overlays:
+        _set_click_through(ov, not _config_mode)
+        if _config_mode:
+            ov.setWindowFlags(ov.windowFlags() | Qt.WindowStaysOnTopHint)
+            ov.show()
+        ov.update()
+    if not _config_mode:
+        cfg = {}
+        for ov in _all_overlays:
+            cfg[ov._id] = [ov.x(), ov.y()]
+        _save_config(cfg)
+
+
+# =====================================================================
+#  TELEMETRY READER
+# =====================================================================
 
 class TelemetryReader:
 
@@ -102,8 +187,6 @@ class TelemetryReader:
         self.yaw_rate = 0.0
         self.lat_g = 0.0
         self.connected = False
-        self.steer_condition = "NEUTRAL"
-        self._steer_history = deque(maxlen=30)
 
     def connect(self):
         if self._h_map:
@@ -138,31 +221,11 @@ class TelemetryReader:
             self.best_lap = _read_float(p_buf, OFF_BEST_LAP)
             self.yaw_rate = _read_float(p_buf, OFF_YAW_RATE)
             self.lat_g    = _read_float(p_buf, OFF_LAT_G)
-            self._detect_steer()
             self.connected = True
         except Exception:
             self.connected = False
         finally:
             kernel32.UnmapViewOfFile(p_buf)
-
-    def _detect_steer(self):
-        steer_abs = abs(self.steering)
-        if steer_abs < 0.15 or self.speed < 3:
-            self.steer_condition = "NEUTRAL"
-            return
-        ratio = abs(self.yaw_rate) / (self.speed + 0.5) / (steer_abs + 0.01)
-        self._steer_history.append(ratio)
-        if len(self._steer_history) < 10:
-            self.steer_condition = "NEUTRAL"
-            return
-        avg = sum(self._steer_history) / len(self._steer_history)
-        deviation = (ratio - avg) / (avg + 0.001)
-        if deviation < -0.35:
-            self.steer_condition = "UNDER"
-        elif deviation > 0.35:
-            self.steer_condition = "OVER"
-        else:
-            self.steer_condition = "NEUTRAL"
 
     def disconnect(self):
         if self._h_map:
@@ -171,42 +234,57 @@ class TelemetryReader:
         self.connected = False
 
 
-def _make_click_through(widget):
-    hwnd = int(widget.winId())
-    try:
-        cur = user32.GetWindowLongPtrW(hwnd, GWL_EXSTYLE)
-    except AttributeError:
-        cur = user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
-    new = cur | WS_EX_TRANSPARENT | WS_EX_TOPMOST
-    try:
-        user32.SetWindowLongPtrW(hwnd, GWL_EXSTYLE, new)
-    except AttributeError:
-        user32.SetWindowLongW(hwnd, GWL_EXSTYLE, new)
-
+# =====================================================================
+#  BASE OVERLAY (com suporte a arrasto no modo config)
+# =====================================================================
 
 class BaseOverlay(QWidget):
-    def __init__(self, w, h, tel):
+    def __init__(self, w, h, tel, widget_id):
         super().__init__()
         self.tel = tel
+        self._id = widget_id
+        self._dragging = False
+        self._drag_start = QPoint()
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setAttribute(Qt.WA_ShowWithoutActivating)
         self.setFixedSize(w, h)
+        pos = _config_pos(widget_id)
+        self.move(pos[0], pos[1])
         self._timer = QTimer()
         self._timer.timeout.connect(self.update)
         self._timer.start(33)
+        _all_overlays.append(self)
 
     def showEvent(self, event):
         super().showEvent(event)
-        _make_click_through(self)
+        _set_click_through(self, True)
 
+    def mousePressEvent(self, event):
+        if _config_mode and event.button() == Qt.LeftButton:
+            self._dragging = True
+            self._drag_start = event.globalPos() - self.frameGeometry().topLeft()
+
+    def mouseMoveEvent(self, event):
+        if _config_mode and self._dragging:
+            self.move(event.globalPos() - self._drag_start)
+
+    def mouseReleaseEvent(self, event):
+        if _config_mode and event.button() == Qt.LeftButton:
+            self._dragging = False
+
+    def closeEvent(self, event):
+        self._timer.stop()
+        super().closeEvent(event)
+
+
+# =====================================================================
+#  LAP OVERLAY
+# =====================================================================
 
 class LapOverlay(BaseOverlay):
     def __init__(self, tel):
-        super().__init__(240, 84, tel)
-        screen = QApplication.primaryScreen()
-        sg = screen.geometry()
-        self.move(sg.left(), sg.top())
+        super().__init__(240, 84, tel, "lap")
 
     def paintEvent(self, _):
         p = QPainter(self)
@@ -214,9 +292,18 @@ class LapOverlay(BaseOverlay):
         w, h = self.width(), self.height()
         tel = self.tel
 
-        p.setPen(Qt.NoPen)
-        p.setBrush(BG_PANEL)
+        bg = BG_CONFIG if _config_mode else BG_PANEL
+        border = C_CONFIG if _config_mode else C_BORDER
+        p.setPen(QPen(border, 1))
+        p.setBrush(bg)
         p.drawRoundedRect(0, 0, w, h, 6, 6)
+
+        if _config_mode:
+            p.setPen(C_CONFIG)
+            p.setFont(QFont("Segoe UI", 9, QFont.Bold))
+            p.drawText(0, 0, w, h, Qt.AlignCenter, "DRAG TO MOVE")
+            p.end()
+            return
 
         if not tel.connected:
             p.setPen(C_TEXT_DIM)
@@ -270,12 +357,13 @@ class LapOverlay(BaseOverlay):
         p.end()
 
 
+# =====================================================================
+#  DASH OVERLAY
+# =====================================================================
+
 class DashOverlay(BaseOverlay):
     def __init__(self, tel):
-        super().__init__(190, 150, tel)
-        screen = QApplication.primaryScreen()
-        sg = screen.geometry()
-        self.move(sg.right() - self.width(), sg.bottom() - self.height())
+        super().__init__(190, 150, tel, "dash")
 
     def paintEvent(self, _):
         p = QPainter(self)
@@ -283,9 +371,18 @@ class DashOverlay(BaseOverlay):
         w, h = self.width(), self.height()
         tel = self.tel
 
-        p.setPen(Qt.NoPen)
-        p.setBrush(BG_PANEL)
+        bg = BG_CONFIG if _config_mode else BG_PANEL
+        border = C_CONFIG if _config_mode else C_BORDER
+        p.setPen(QPen(border, 1))
+        p.setBrush(bg)
         p.drawRoundedRect(0, 0, w, h, 10, 10)
+
+        if _config_mode:
+            p.setPen(C_CONFIG)
+            p.setFont(QFont("Segoe UI", 9, QFont.Bold))
+            p.drawText(0, 0, w, h, Qt.AlignCenter, "DRAG TO MOVE")
+            p.end()
+            return
 
         if not tel.connected:
             p.setPen(C_TEXT_DIM)
@@ -336,6 +433,10 @@ class DashOverlay(BaseOverlay):
         p.end()
 
 
+# =====================================================================
+#  GRAPH OVERLAY
+# =====================================================================
+
 HISTORY_SECONDS = 8
 SAMPLE_RATE_HZ  = 30
 MAX_SAMPLES     = HISTORY_SECONDS * SAMPLE_RATE_HZ
@@ -343,13 +444,8 @@ MAX_SAMPLES     = HISTORY_SECONDS * SAMPLE_RATE_HZ
 
 class GraphOverlay(BaseOverlay):
     def __init__(self, tel):
-        super().__init__(560, 180, tel)
+        super().__init__(560, 180, tel, "graph")
         self.history = deque(maxlen=MAX_SAMPLES)
-        screen = QApplication.primaryScreen()
-        sg = screen.geometry()
-        x = (sg.width() - self.width()) // 2
-        y = sg.bottom() - self.height()
-        self.move(sg.left() + x, y)
         self._tick_timer = QTimer()
         self._tick_timer.timeout.connect(self._tick)
         self._tick_timer.start(33)
@@ -365,9 +461,18 @@ class GraphOverlay(BaseOverlay):
         w, h = self.width(), self.height()
         tel = self.tel
 
-        p.setPen(Qt.NoPen)
-        p.setBrush(BG_DARK)
+        bg = BG_CONFIG if _config_mode else BG_DARK
+        border = C_CONFIG if _config_mode else C_BORDER
+        p.setPen(QPen(border, 1))
+        p.setBrush(bg)
         p.drawRoundedRect(0, 0, w, h, 8, 8)
+
+        if _config_mode:
+            p.setPen(C_CONFIG)
+            p.setFont(QFont("Segoe UI", 10, QFont.Bold))
+            p.drawText(0, 0, w, h, Qt.AlignCenter, "DRAG TO MOVE")
+            p.end()
+            return
 
         if not tel.connected:
             p.setPen(C_TEXT_DIM)
@@ -410,19 +515,6 @@ class GraphOverlay(BaseOverlay):
         p.drawLine(0, -sw_r - 4, 0, -sw_r + 6)
 
         p.restore()
-
-        cond = tel.steer_condition
-        if cond != "NEUTRAL":
-            is_under = cond == "UNDER"
-            c_warn = QColor(255, 140, 30) if is_under else QColor(255, 50, 50)
-            p.setPen(QPen(c_warn, 1))
-            p.setBrush(QColor(c_warn.red(), c_warn.green(), c_warn.blue(), 60))
-            ind_y = sw_bot - 24
-            p.drawRoundedRect(sw_x + 6, ind_y, sw_w - 12, 18, 3, 3)
-            p.setPen(c_warn)
-            p.setFont(QFont("Segoe UI", 7, QFont.Bold))
-            txt = "UNDER" if is_under else "OVER"
-            p.drawText(sw_x, ind_y + 1, sw_w, 16, Qt.AlignCenter, txt)
 
         g_x     = 6
         g_w     = w - 120
@@ -482,10 +574,12 @@ class GraphOverlay(BaseOverlay):
         super().closeEvent(event)
 
 
+# =====================================================================
+#  HOTKEYS (F6 config, F8 quit)
+# =====================================================================
+
 WM_HOTKEY = 0x0312
 MOD_NOREPEAT = 0x4000
-VK_F8 = 0x77
-HOTKEY_ID = 1
 
 user32.RegisterHotKey.argtypes = [wintypes.HWND, ctypes.c_int, wintypes.UINT, wintypes.UINT]
 user32.RegisterHotKey.restype  = wintypes.BOOL
@@ -494,23 +588,32 @@ user32.UnregisterHotKey.restype  = wintypes.BOOL
 
 
 class HotkeyFilter(QAbstractNativeEventFilter):
-    def __init__(self, callback):
+    def __init__(self, hotkey_defs):
         super().__init__()
-        self._cb = callback
-        ok = user32.RegisterHotKey(None, HOTKEY_ID, MOD_NOREPEAT, VK_F8)
-        if not ok:
-            print("[!] F8 ja esta em uso")
+        self._cbs = {}
+        for hid, vk, cb in hotkey_defs:
+            self._cbs[hid] = cb
+            ok = user32.RegisterHotKey(None, hid, MOD_NOREPEAT, vk)
+            if not ok:
+                print(f"[!] Hotkey F{hid} ja esta em uso")
 
     def nativeEventFilter(self, event_type, message):
         msg = ctypes.cast(ctypes.c_void_p(int(message)), ctypes.POINTER(wintypes.MSG))
-        if msg.contents.message == WM_HOTKEY and msg.contents.wParam == HOTKEY_ID:
-            self._cb()
-            return True, 0
+        if msg.contents.message == WM_HOTKEY:
+            hid = msg.contents.wParam
+            if hid in self._cbs:
+                self._cbs[hid]()
+                return True, 0
         return False, 0
 
     def unregister(self):
-        user32.UnregisterHotKey(None, HOTKEY_ID)
+        for hid in self._cbs:
+            user32.UnregisterHotKey(None, hid)
 
+
+# =====================================================================
+#  SYSTEM TRAY
+# =====================================================================
 
 def criar_tray(app, overlays):
     def fechar():
@@ -529,6 +632,10 @@ def criar_tray(app, overlays):
     tray.show()
     return tray
 
+
+# =====================================================================
+#  MAIN
+# =====================================================================
 
 def main():
     try:
@@ -554,7 +661,11 @@ def main():
                 ov.close()
             app.quit()
 
-        hotkey_filter = HotkeyFilter(on_f8)
+        hotkey_defs = [
+            (1, 0x77, on_f8),          # F8 = quit
+            (2, 0x75, _toggle_config),  # F6 = config
+        ]
+        hotkey_filter = HotkeyFilter(hotkey_defs)
         app.installNativeEventFilter(hotkey_filter)
         tray_icon._unregister_hotkey = hotkey_filter.unregister
 
@@ -567,10 +678,11 @@ def main():
         master_timer.timeout.connect(master_tick)
         master_timer.start(33)
 
-        print("=" * 50)
+        print("=" * 55)
         print("  AMS2 Telemetry Overlay iniciado")
+        print("  F6 = modo config (arrastar widgets)")
         print("  F8 = fechar  |  Bandeja = Sair")
-        print("=" * 50)
+        print("=" * 55)
 
         ret = app.exec_()
         master_timer.stop()
