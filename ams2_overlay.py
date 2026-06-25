@@ -151,6 +151,8 @@ def _set_click_through(widget, enabled):
 
 
 def _reset_config():
+    if not _config_mode:
+        return
     try:
         os.remove(CONFIG_FILE)
     except Exception:
