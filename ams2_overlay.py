@@ -122,6 +122,7 @@ def _get_default_config():
         "lap":   [sg.left(), sg.top()],
         "dash":  [sg.right() - 190, sg.bottom() - 150],
         "graph": [sg.left() + (sg.width() - 560) // 2, sg.bottom() - 180],
+        "help":  [sg.left() + (sg.width() - 260) // 2, sg.top()],
     }
 
 
@@ -437,6 +438,36 @@ class DashOverlay(BaseOverlay):
 #  GRAPH OVERLAY
 # =====================================================================
 
+# =====================================================================
+#  HELP OVERLAY (legenda de teclas, topo central)
+# =====================================================================
+
+class HelpOverlay(BaseOverlay):
+    def __init__(self, tel):
+        super().__init__(260, 30, tel, "help")
+
+    def paintEvent(self, _):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        w, h = self.width(), self.height()
+
+        if _config_mode or not self.tel.connected:
+            p.end()
+            return
+
+        p.setPen(Qt.NoPen)
+        p.setBrush(QColor(10, 10, 10, 140))
+        p.drawRoundedRect(0, 0, w, h, 5, 5)
+
+        p.setFont(QFont("Segoe UI", 7))
+        p.setPen(C_TEXT_DIM)
+        p.drawText(0, 0, w, h, Qt.AlignCenter, "F6 = config   |   F8 = exit")
+
+
+# =====================================================================
+#  GRAPH OVERLAY
+# =====================================================================
+
 HISTORY_SECONDS = 8
 SAMPLE_RATE_HZ  = 30
 MAX_SAMPLES     = HISTORY_SECONDS * SAMPLE_RATE_HZ
@@ -648,12 +679,14 @@ def main():
         graph = GraphOverlay(tel)
         dash  = DashOverlay(tel)
         lap   = LapOverlay(tel)
+        help  = HelpOverlay(tel)
 
         graph.show()
         dash.show()
         lap.show()
+        help.show()
 
-        overlays = [graph, dash, lap]
+        overlays = [graph, dash, lap, help]
         tray_icon = criar_tray(app, overlays)
 
         def on_f8():
