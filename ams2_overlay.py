@@ -253,10 +253,11 @@ class TelemetryReader:
 # =====================================================================
 
 class BaseOverlay(QWidget):
-    def __init__(self, w, h, tel, widget_id):
+    def __init__(self, w, h, tel, widget_id, draggable=True):
         super().__init__()
         self.tel = tel
         self._id = widget_id
+        self._draggable = draggable
         self._dragging = False
         self._drag_start = QPoint()
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)
@@ -275,16 +276,16 @@ class BaseOverlay(QWidget):
         _set_click_through(self, True)
 
     def mousePressEvent(self, event):
-        if _config_mode and event.button() == Qt.LeftButton:
+        if _config_mode and self._draggable and event.button() == Qt.LeftButton:
             self._dragging = True
             self._drag_start = event.globalPos() - self.frameGeometry().topLeft()
 
     def mouseMoveEvent(self, event):
-        if _config_mode and self._dragging:
+        if _config_mode and self._draggable and self._dragging:
             self.move(event.globalPos() - self._drag_start)
 
     def mouseReleaseEvent(self, event):
-        if _config_mode and event.button() == Qt.LeftButton:
+        if _config_mode and self._draggable and event.button() == Qt.LeftButton:
             self._dragging = False
 
     def closeEvent(self, event):
@@ -457,7 +458,7 @@ class DashOverlay(BaseOverlay):
 
 class HelpOverlay(BaseOverlay):
     def __init__(self, tel):
-        super().__init__(260, 30, tel, "help")
+        super().__init__(260, 30, tel, "help", draggable=False)
 
     def paintEvent(self, _):
         p = QPainter(self)
