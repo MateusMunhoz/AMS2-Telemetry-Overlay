@@ -150,6 +150,17 @@ def _set_click_through(widget, enabled):
         user32.SetWindowLongW(hwnd, GWL_EXSTYLE, new)
 
 
+def _reset_config():
+    try:
+        os.remove(CONFIG_FILE)
+    except Exception:
+        pass
+    cfg = _get_default_config()
+    for ov in _all_overlays:
+        pos = cfg.get(ov._id, [100, 100])
+        ov.move(pos[0], pos[1])
+
+
 def _toggle_config():
     global _config_mode
     _config_mode = not _config_mode
@@ -451,17 +462,17 @@ class HelpOverlay(BaseOverlay):
         p.setRenderHint(QPainter.Antialiasing)
         w, h = self.width(), self.height()
 
-        if _config_mode or not self.tel.connected:
+        if not _config_mode:
             p.end()
             return
 
         p.setPen(Qt.NoPen)
-        p.setBrush(QColor(10, 10, 10, 140))
+        p.setBrush(QColor(10, 10, 10, 180))
         p.drawRoundedRect(0, 0, w, h, 5, 5)
 
         p.setFont(QFont("Segoe UI", 7))
-        p.setPen(C_TEXT_DIM)
-        p.drawText(0, 0, w, h, Qt.AlignCenter, "F6 = config   |   F8 = exit")
+        p.setPen(C_CONFIG)
+        p.drawText(0, 0, w, h, Qt.AlignCenter, "F5 = reset   |   F6 = save")
 
 
 # =====================================================================
@@ -697,6 +708,7 @@ def main():
         hotkey_defs = [
             (1, 0x77, on_f8),          # F8 = quit
             (2, 0x75, _toggle_config),  # F6 = config
+            (3, 0x74, _reset_config),   # F5 = reset positions
         ]
         hotkey_filter = HotkeyFilter(hotkey_defs)
         app.installNativeEventFilter(hotkey_filter)
