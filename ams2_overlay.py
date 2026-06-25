@@ -122,7 +122,7 @@ def _get_default_config():
         "lap":   [sg.left(), sg.top()],
         "dash":  [sg.right() - 190, sg.bottom() - 150],
         "graph": [sg.left() + (sg.width() - 560) // 2, sg.bottom() - 180],
-        "help":  [sg.left() + (sg.width() - 260) // 2, sg.top()],
+        "help":  [sg.left() + (sg.width() - 320) // 2, sg.top()],
     }
 
 
@@ -458,7 +458,7 @@ class DashOverlay(BaseOverlay):
 
 class HelpOverlay(BaseOverlay):
     def __init__(self, tel):
-        super().__init__(260, 30, tel, "help", draggable=False)
+        super().__init__(320, 30, tel, "help", draggable=False)
 
     def paintEvent(self, _):
         p = QPainter(self)
@@ -475,7 +475,7 @@ class HelpOverlay(BaseOverlay):
 
         p.setFont(QFont("Segoe UI", 7))
         p.setPen(C_CONFIG)
-        p.drawText(0, 0, w, h, Qt.AlignCenter, "F5 = reset   |   F6 = save")
+        p.drawText(0, 0, w, h, Qt.AlignCenter, "Ctrl+F5 = reset   |   Ctrl+F6 = save")
 
 
 # =====================================================================
@@ -625,6 +625,9 @@ class GraphOverlay(BaseOverlay):
 
 WM_HOTKEY = 0x0312
 MOD_NOREPEAT = 0x4000
+MOD_CONTROL   = 0x0002
+MOD_ALT       = 0x0001
+MOD_SHIFT     = 0x0004
 
 user32.RegisterHotKey.argtypes = [wintypes.HWND, ctypes.c_int, wintypes.UINT, wintypes.UINT]
 user32.RegisterHotKey.restype  = wintypes.BOOL
@@ -638,9 +641,9 @@ class HotkeyFilter(QAbstractNativeEventFilter):
         self._cbs = {}
         for hid, vk, cb in hotkey_defs:
             self._cbs[hid] = cb
-            ok = user32.RegisterHotKey(None, hid, MOD_NOREPEAT, vk)
+            ok = user32.RegisterHotKey(None, hid, MOD_NOREPEAT | MOD_CONTROL, vk)
             if not ok:
-                print(f"[!] Hotkey F{hid} ja esta em uso")
+                print(f"[!] Hotkey Ctrl+F{hid} ja esta em uso")
 
     def nativeEventFilter(self, event_type, message):
         msg = ctypes.cast(ctypes.c_void_p(int(message)), ctypes.POINTER(wintypes.MSG))
@@ -728,8 +731,9 @@ def main():
 
         print("=" * 55)
         print("  AMS2 Telemetry Overlay iniciado")
-        print("  F6 = modo config (arrastar widgets)")
-        print("  F8 = fechar  |  Bandeja = Sair")
+        print("  Ctrl+F6 = modo config (arrastar widgets)")
+        print("  Ctrl+F5 = reset posicoes (durante config)")
+        print("  Ctrl+F8 = fechar  |  Bandeja = Sair")
         print("=" * 55)
 
         ret = app.exec_()
