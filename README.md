@@ -61,7 +61,7 @@ Without this, the overlay cannot read telemetry data.
 |-----|--------|
 | **F6** | Toggle config mode -- drag widgets to reposition them |
 | **F5** | Reset all widget positions to defaults (only works in config mode) |
-| **F8** | Close all overlays and exit |
+| **F8** | Close all widgets and exit |
 
 ## Usage
 
