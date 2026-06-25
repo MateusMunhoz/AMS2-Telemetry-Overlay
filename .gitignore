@@ -1,0 +1,29 @@
+# PyInstaller
+build/
+*.spec
+*.exe
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+
+# Virtual environment
+.venv/
+venv/
+env/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Track map cache
+trackmaps_cache/
+trackmaps/
