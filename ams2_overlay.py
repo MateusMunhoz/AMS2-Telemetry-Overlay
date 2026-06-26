@@ -482,7 +482,7 @@ class HelpOverlay(BaseOverlay):
 #  GRAPH OVERLAY
 # =====================================================================
 
-HISTORY_SECONDS = 8
+HISTORY_SECONDS = 10#Quantos segundos de input sao registrados no grafico
 SAMPLE_RATE_HZ  = 30
 MAX_SAMPLES     = HISTORY_SECONDS * SAMPLE_RATE_HZ
 
