@@ -14,7 +14,7 @@ from collections import deque
 
 from PyQt5.QtCore import Qt, QTimer, QPointF, QAbstractNativeEventFilter, QPoint
 from PyQt5.QtGui import (
-    QPainter, QColor, QFont, QPen, QBrush
+    QPainter, QColor, QFont, QPen, QBrush, QPainterPath
 )
 from PyQt5.QtWidgets import QApplication, QWidget, QSystemTrayIcon, QMenu, QAction
 
@@ -585,16 +585,23 @@ MAX_SAMPLES     = HISTORY_SECONDS * SAMPLE_RATE_HZ
 
 
 class GraphOverlay(BaseOverlay):
+    EMA_ALPHA = 0.35  # menor = mais suave (0.0 a 1.0)
+
     def __init__(self, tel):
         super().__init__(560, 180, tel, "graph")
         self.history = deque(maxlen=MAX_SAMPLES)
+        self._s_thr = 0.0
+        self._s_brk = 0.0
         self._tick_timer = QTimer()
         self._tick_timer.timeout.connect(self._tick)
         self._tick_timer.start(16)
 
     def _tick(self):
         if self.tel.connected:
-            self.history.append((self.tel.throttle, self.tel.brake))
+            a = self.EMA_ALPHA
+            self._s_thr = a * self.tel.throttle + (1 - a) * self._s_thr
+            self._s_brk = a * self.tel.brake    + (1 - a) * self._s_brk
+            self.history.append((self._s_thr, self._s_brk))
         self.update()
 
     def paintEvent(self, _):
@@ -694,13 +701,29 @@ class GraphOverlay(BaseOverlay):
             def x_for(i):
                 return g_right - int(gw * (n - 1 - i) / MAX_SAMPLES)
 
-            pts_thr = [QPointF(x_for(i), g_bot - int(gh * self.history[i][0])) for i in range(n)]
-            p.setPen(QPen(C_THROTTLE, 2))
-            p.drawPolyline(pts_thr)
+            def draw_smooth(painter, pen, values):
+                if len(values) < 2:
+                    return
+                pts = [QPointF(x_for(i), g_bot - gh * values[i]) for i in range(n)]
+                painter.setPen(pen)
+                path = QPainterPath()
+                path.moveTo(pts[0])
+                for i in range(1, len(pts)):
+                    p0, p1 = pts[i - 1], pts[i]
+                    dx = (p1.x() - p0.x()) * 0.5
+                    path.cubicTo(
+                        QPointF(p0.x() + dx, p0.y()),
+                        QPointF(p1.x() - dx, p1.y()),
+                        p1
+                    )
+                painter.setBrush(Qt.NoBrush)
+                painter.drawPath(path)
 
-            pts_brk = [QPointF(x_for(i), g_bot - int(gh * self.history[i][1])) for i in range(n)]
-            p.setPen(QPen(C_BRAKE, 2))
-            p.drawPolyline(pts_brk)
+            thr_vals = [self.history[i][0] for i in range(n)]
+            brk_vals = [self.history[i][1] for i in range(n)]
+
+            draw_smooth(p, QPen(C_THROTTLE, 2), thr_vals)
+            draw_smooth(p, QPen(C_BRAKE, 2), brk_vals)
 
         p.setFont(QFont("Segoe UI", 8, QFont.Bold))
         p.setPen(C_THROTTLE)
