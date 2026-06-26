@@ -124,7 +124,7 @@ def _get_default_config():
         "lap":    [sg.left(), sg.top()],
         "dash":   [sg.right() - 190, sg.bottom() - 150],
         "graph":  [sg.left() + (sg.width() - 560) // 2, sg.bottom() - 180],
-        "pedals": [sg.left(), sg.bottom() - 110],
+        "pedals": [sg.left(), sg.bottom() - 160],
         "help":   [sg.left() + (sg.width() - 320) // 2, sg.top()],
         "hidden": [],
     }
@@ -403,7 +403,7 @@ class LapOverlay(BaseOverlay):
 
 class PedalsOverlay(BaseOverlay):
     def __init__(self, tel):
-        super().__init__(210, 100, tel, "pedals")
+        super().__init__(140, 160, tel, "pedals")
 
     def paintEvent(self, _):
         p = QPainter(self)
@@ -437,31 +437,34 @@ class PedalsOverlay(BaseOverlay):
             ("CLT", tel.clutch,   C_CLUTCH),
         ]
 
-        bar_x = 38
-        bar_w = w - bar_x - 45
-        bar_h = 16
-        spacing = 26
-        y = 12
+        col_w = 38
+        margin = 12
+        top_y = 14
+        bot_y = 26
+        bar_w = 22
+        bar_h = h - top_y - bot_y
+        spacing = (w - margin * 2 - col_w * 3) // 2
 
-        for label, val, color in pedals:
-            p.setFont(QFont("Segoe UI", 8, QFont.Bold))
+        for i, (label, val, color) in enumerate(pedals):
+            cx = margin + i * (col_w + spacing)
+
+            p.setFont(QFont("Segoe UI", 7, QFont.Bold))
             p.setPen(C_TEXT_DIM)
-            p.drawText(10, y, 24, bar_h + 4, Qt.AlignVCenter | Qt.AlignLeft, label)
+            p.drawText(cx, 2, col_w, 12, Qt.AlignCenter, label)
 
+            bx = cx + (col_w - bar_w) // 2
             p.setPen(Qt.NoPen)
             p.setBrush(QColor(30, 30, 30, 220))
-            p.drawRoundedRect(bar_x, y + 2, bar_w, bar_h, 3, 3)
+            p.drawRoundedRect(bx, top_y, bar_w, bar_h, 3, 3)
 
             if val > 0.001:
-                fill = max(4, int(bar_w * val))
+                fill = max(4, int(bar_h * val))
                 p.setBrush(color)
-                p.drawRoundedRect(bar_x, y + 2, fill, bar_h, 3, 3)
+                p.drawRoundedRect(bx, top_y + bar_h - fill, bar_w, fill, 3, 3)
 
             p.setPen(C_TEXT)
-            p.setFont(QFont("Segoe UI", 8))
-            p.drawText(bar_x + bar_w + 6, y, 38, bar_h + 4, Qt.AlignVCenter | Qt.AlignLeft, f"{int(val*100)}%")
-
-            y += spacing
+            p.setFont(QFont("Segoe UI", 7))
+            p.drawText(cx, h - 22, col_w, 14, Qt.AlignCenter, f"{int(val*100)}%")
 
         p.end()
 
@@ -767,36 +770,45 @@ def criar_tray(app, overlays):
     tray = QSystemTrayIcon(icon)
     tray.setToolTip("AMS2 Telemetry")
     menu = QMenu()
+    tray._menu = menu
+    tray._actions = []
 
-    show_menu = menu.addMenu("Show / Hide")
+    tray._actions.append(menu.addAction("Widgets:"))
+
     hidden = _get_hidden()
     widget_names = {"lap": "Lap Times", "dash": "Dash", "graph": "Graph", "pedals": "Pedals"}
 
-    def make_toggle(wid, name):
-        def toggle():
+    def make_toggle(wid):
+        def toggle(checked):
             h = _get_hidden()
             ov = next((o for o in overlays if o._id == wid), None)
-            if wid in h:
-                h.remove(wid)
-                if ov:
-                    ov.show()
-            else:
-                h.append(wid)
+            if not checked:
+                if wid not in h:
+                    h.append(wid)
                 if ov:
                     ov.hide()
+            else:
+                if wid in h:
+                    h.remove(wid)
+                if ov and not _config_mode:
+                    ov.show()
             _set_hidden(h)
         return toggle
 
     for wid, name in widget_names.items():
-        act = QAction(name, checkable=True)
+        act = QAction(name)
+        act.setCheckable(True)
         act.setChecked(wid not in hidden)
-        act.triggered.connect(make_toggle(wid, name))
-        show_menu.addAction(act)
+        act.triggered.connect(make_toggle(wid))
+        menu.addAction(act)
+        tray._actions.append(act)
 
     menu.addSeparator()
     acao = QAction("Sair")
     acao.triggered.connect(fechar)
     menu.addAction(acao)
+    tray._actions.append(acao)
+
     tray.setContextMenu(menu)
     tray.show()
     return tray
