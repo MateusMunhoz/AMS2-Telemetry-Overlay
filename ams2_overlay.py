@@ -616,10 +616,6 @@ class GraphOverlay(BaseOverlay):
         p.setBrush(bg)
         p.drawRoundedRect(0, 0, w, h, 8, 8)
 
-        # linha divisoria entre grafico e volante
-        p.setPen(QPen(C_BORDER, 1))
-        p.drawLine(w - 110, 6, w - 110, h - 6)
-
         if _config_mode:
             p.setPen(C_CONFIG)
             p.setFont(QFont("Segoe UI", 10, QFont.Bold))
