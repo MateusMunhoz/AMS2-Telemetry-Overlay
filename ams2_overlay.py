@@ -616,6 +616,10 @@ class GraphOverlay(BaseOverlay):
         p.setBrush(bg)
         p.drawRoundedRect(0, 0, w, h, 8, 8)
 
+        # linha divisoria entre grafico e volante
+        p.setPen(QPen(C_BORDER, 1))
+        p.drawLine(w - 110, 6, w - 110, h - 6)
+
         if _config_mode:
             p.setPen(C_CONFIG)
             p.setFont(QFont("Segoe UI", 10, QFont.Bold))
@@ -637,10 +641,6 @@ class GraphOverlay(BaseOverlay):
         sw_cx  = sw_x + sw_w // 2
         sw_cy  = sw_top + (sw_bot - sw_top) // 2
         sw_r   = 28
-
-        p.setPen(QPen(C_BORDER, 1))
-        p.setBrush(QColor(15, 15, 15, 160))
-        p.drawRoundedRect(sw_x, sw_top, sw_w, sw_bot - sw_top, 6, 6)
 
         angle_deg = tel.steering * 180
         p.save()
@@ -673,10 +673,6 @@ class GraphOverlay(BaseOverlay):
         g_right = g_x + g_w - 4
         gw      = g_right - g_left
         gh      = g_bot - g_top
-
-        p.setPen(QPen(C_BORDER, 1))
-        p.setBrush(QColor(12, 12, 12, 150))
-        p.drawRoundedRect(g_x, g_top, g_w, g_bot - g_top, 6, 6)
 
         p.setPen(QPen(C_GRID, 1))
         for i in range(5):
