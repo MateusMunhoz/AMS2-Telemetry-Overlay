@@ -482,8 +482,8 @@ class HelpOverlay(BaseOverlay):
 #  GRAPH OVERLAY
 # =====================================================================
 
-HISTORY_SECONDS = 10#Quantos segundos de input sao registrados no grafico
-SAMPLE_RATE_HZ  = 30
+HISTORY_SECONDS = 15#Quantos segundos de input sao registrados no grafico
+SAMPLE_RATE_HZ  = 60
 MAX_SAMPLES     = HISTORY_SECONDS * SAMPLE_RATE_HZ
 
 
@@ -493,7 +493,7 @@ class GraphOverlay(BaseOverlay):
         self.history = deque(maxlen=MAX_SAMPLES)
         self._tick_timer = QTimer()
         self._tick_timer.timeout.connect(self._tick)
-        self._tick_timer.start(33)
+        self._tick_timer.start(16)
 
     def _tick(self):
         if self.tel.connected:
