@@ -340,14 +340,14 @@ class LapOverlay(BaseOverlay):
 
         if _config_mode:
             p.setPen(C_CONFIG)
-            p.setFont(QFont("Segoe UI", 9, QFont.Bold))
+            p.setFont(QFont("JetBrains Mono", 9, QFont.Bold))
             p.drawText(0, 0, w, h, Qt.AlignCenter, "DRAG TO MOVE")
             p.end()
             return
 
         if not tel.connected:
             p.setPen(C_TEXT_DIM)
-            p.setFont(QFont("Segoe UI", 8))
+            p.setFont(QFont("JetBrains Mono", 8))
             p.drawText(0, 0, w, h, Qt.AlignCenter, "Aguardando...")
             p.end()
             return
@@ -358,7 +358,7 @@ class LapOverlay(BaseOverlay):
             cur_txt = f"{m}:{s:06.3f}"
         else:
             cur_txt = "--:--.---"
-        p.setFont(QFont("Segoe UI", 18, QFont.Bold))
+        p.setFont(QFont("JetBrains Mono", 18, QFont.Bold))
         p.setPen(C_TEXT_HI)
         p.drawText(8, 0, w - 16, 28, Qt.AlignLeft | Qt.AlignVCenter, cur_txt)
 
@@ -373,15 +373,15 @@ class LapOverlay(BaseOverlay):
             else:
                 delta_txt = " 0.000"
                 delta_col = C_TEXT
-            p.setFont(QFont("Segoe UI", 13, QFont.Bold))
+            p.setFont(QFont("JetBrains Mono", 13, QFont.Bold))
             p.setPen(delta_col)
             p.drawText(8, 28, w - 16, 24, Qt.AlignLeft | Qt.AlignVCenter, delta_txt)
         else:
-            p.setFont(QFont("Segoe UI", 10))
+            p.setFont(QFont("JetBrains Mono", 10))
             p.setPen(C_TEXT_DIM)
             p.drawText(8, 28, w - 16, 24, Qt.AlignLeft | Qt.AlignVCenter, "--.---")
 
-        p.setFont(QFont("Segoe UI", 7))
+        p.setFont(QFont("JetBrains Mono", 7))
         p.setPen(C_TEXT_DIM)
         p.drawText(10, 56, 50, 14, Qt.AlignLeft, "LAST")
         if tel.last_lap > 0:
@@ -390,7 +390,7 @@ class LapOverlay(BaseOverlay):
             last_txt = f"{m}:{s:06.3f}"
         else:
             last_txt = "--:--.---"
-        p.setFont(QFont("Segoe UI", 11, QFont.Bold))
+        p.setFont(QFont("JetBrains Mono", 11, QFont.Bold))
         p.setPen(C_TEXT)
         p.drawText(8, 56, w - 16, 22, Qt.AlignLeft | Qt.AlignVCenter, last_txt)
 
@@ -419,14 +419,14 @@ class PedalsOverlay(BaseOverlay):
 
         if _config_mode:
             p.setPen(C_CONFIG)
-            p.setFont(QFont("Segoe UI", 9, QFont.Bold))
+            p.setFont(QFont("JetBrains Mono", 9, QFont.Bold))
             p.drawText(0, 0, w, h, Qt.AlignCenter, "DRAG TO MOVE")
             p.end()
             return
 
         if not tel.connected:
             p.setPen(C_TEXT_DIM)
-            p.setFont(QFont("Segoe UI", 8))
+            p.setFont(QFont("JetBrains Mono", 8))
             p.drawText(0, 0, w, h, Qt.AlignCenter, "...")
             p.end()
             return
@@ -448,7 +448,7 @@ class PedalsOverlay(BaseOverlay):
         for i, (label, val, color) in enumerate(pedals):
             cx = margin + i * (col_w + spacing)
 
-            p.setFont(QFont("Segoe UI", 7, QFont.Bold))
+            p.setFont(QFont("JetBrains Mono", 7, QFont.Bold))
             p.setPen(C_TEXT_DIM)
             p.drawText(cx, 2, col_w, 12, Qt.AlignCenter, label)
 
@@ -463,7 +463,7 @@ class PedalsOverlay(BaseOverlay):
                 p.drawRoundedRect(bx, top_y + bar_h - fill, bar_w, fill, 3, 3)
 
             p.setPen(C_TEXT)
-            p.setFont(QFont("Segoe UI", 7))
+            p.setFont(QFont("JetBrains Mono", 7))
             p.drawText(cx, h - 22, col_w, 14, Qt.AlignCenter, f"{int(val*100)}%")
 
         p.end()
@@ -491,14 +491,14 @@ class DashOverlay(BaseOverlay):
 
         if _config_mode:
             p.setPen(C_CONFIG)
-            p.setFont(QFont("Segoe UI", 9, QFont.Bold))
+            p.setFont(QFont("JetBrains Mono", 9, QFont.Bold))
             p.drawText(0, 0, w, h, Qt.AlignCenter, "DRAG TO MOVE")
             p.end()
             return
 
         if not tel.connected:
             p.setPen(C_TEXT_DIM)
-            p.setFont(QFont("Segoe UI", 8))
+            p.setFont(QFont("JetBrains Mono", 8))
             p.drawText(0, 0, w, h, Qt.AlignCenter, "Aguardando...")
             p.end()
             return
@@ -509,15 +509,15 @@ class DashOverlay(BaseOverlay):
             gtxt, gcol = "N", C_TEXT_DIM
         else:
             gtxt, gcol = str(tel.gear), C_TEXT_HI
-        p.setFont(QFont("Segoe UI", 40, QFont.Bold))
+        p.setFont(QFont("JetBrains Mono", 40, QFont.Bold))
         p.setPen(gcol)
         p.drawText(0, 2, w, 50, Qt.AlignCenter, gtxt)
 
         speed_kmh = int(tel.speed * 3.6)
-        p.setFont(QFont("Segoe UI", 22, QFont.Bold))
+        p.setFont(QFont("JetBrains Mono", 22, QFont.Bold))
         p.setPen(C_TEXT_HI)
         p.drawText(0, 50, w, 72, Qt.AlignCenter, f"{speed_kmh}")
-        p.setFont(QFont("Segoe UI", 7))
+        p.setFont(QFont("JetBrains Mono", 7))
         p.setPen(C_TEXT_DIM)
         p.drawText(0, 100, w, 10, Qt.AlignCenter, "km/h")
 
@@ -538,7 +538,7 @@ class DashOverlay(BaseOverlay):
             p.setBrush(c)
             p.drawRoundedRect(bar_x, bar_y, fill, bar_h, 2, 2)
 
-        p.setFont(QFont("Segoe UI", 7))
+        p.setFont(QFont("JetBrains Mono", 7))
         p.setPen(C_TEXT_DIM)
         p.drawText(0, bar_y + bar_h + 2, w, 12, Qt.AlignCenter, f"{int(tel.rpm)} rpm")
 
@@ -570,7 +570,7 @@ class HelpOverlay(BaseOverlay):
         p.setBrush(QColor(10, 10, 10, 180))
         p.drawRoundedRect(0, 0, w, h, 5, 5)
 
-        p.setFont(QFont("Segoe UI", 7))
+        p.setFont(QFont("JetBrains Mono", 7))
         p.setPen(C_CONFIG)
         p.drawText(0, 0, w, h, Qt.AlignCenter, "Ctrl+F5 = reset   |   Ctrl+F6 = save")
 
@@ -618,14 +618,14 @@ class GraphOverlay(BaseOverlay):
 
         if _config_mode:
             p.setPen(C_CONFIG)
-            p.setFont(QFont("Segoe UI", 10, QFont.Bold))
+            p.setFont(QFont("JetBrains Mono", 10, QFont.Bold))
             p.drawText(0, 0, w, h, Qt.AlignCenter, "DRAG TO MOVE")
             p.end()
             return
 
         if not tel.connected:
             p.setPen(C_TEXT_DIM)
-            p.setFont(QFont("Segoe UI", 8))
+            p.setFont(QFont("JetBrains Mono", 8))
             p.drawText(0, 0, w, h, Qt.AlignCenter, "Aguardando...")
             p.end()
             return
@@ -682,7 +682,7 @@ class GraphOverlay(BaseOverlay):
                 p.drawLine(x, g_top, x, g_bot)
 
         p.setPen(C_TEXT_DIM)
-        p.setFont(QFont("Segoe UI", 7))
+        p.setFont(QFont("JetBrains Mono", 7))
         for i, label in enumerate(["100", "75", "50", "25", "0"]):
             y = g_top + int(gh * i / 4)
             p.drawText(4, y - 5, 30, 12, Qt.AlignRight, label)
@@ -717,7 +717,7 @@ class GraphOverlay(BaseOverlay):
             draw_smooth(p, QPen(C_THROTTLE, 2), thr_vals)
             draw_smooth(p, QPen(C_BRAKE, 2), brk_vals)
 
-        p.setFont(QFont("Segoe UI", 8, QFont.Bold))
+        p.setFont(QFont("JetBrains Mono", 8, QFont.Bold))
         p.setPen(C_THROTTLE)
         p.drawText(g_left + 6, g_top + 14, 28, 12, Qt.AlignLeft, "THR")
         p.setPen(C_BRAKE)
