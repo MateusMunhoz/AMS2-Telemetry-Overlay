@@ -50,6 +50,7 @@ MEM_NAMES = ["$pcars2$", "Global\\$pcars2$"]
 OFF_THROTTLE = 6428
 OFF_BRAKE    = 6432
 OFF_STEERING = 6436
+OFF_CLUTCH   = 6440
 OFF_SPEED    = 6848
 OFF_RPM      = 6852
 OFF_MAX_RPM  = 6856
@@ -66,6 +67,7 @@ BG_PANEL     = QColor(12, 12, 12, 180)
 BG_CONFIG    = QColor(20, 20, 30, 230)
 C_THROTTLE   = QColor(0, 220, 50)
 C_BRAKE      = QColor(255, 40, 40)
+C_CLUTCH     = QColor(255, 180, 30)
 C_STEERING   = QColor(100, 140, 180)
 C_TEXT       = QColor(220, 220, 220, 220)
 C_TEXT_DIM   = QColor(140, 140, 140, 160)
@@ -119,11 +121,24 @@ def _get_default_config():
         return {}
     sg = screen.geometry()
     return {
-        "lap":   [sg.left(), sg.top()],
-        "dash":  [sg.right() - 190, sg.bottom() - 150],
-        "graph": [sg.left() + (sg.width() - 560) // 2, sg.bottom() - 180],
-        "help":  [sg.left() + (sg.width() - 320) // 2, sg.top()],
+        "lap":    [sg.left(), sg.top()],
+        "dash":   [sg.right() - 190, sg.bottom() - 150],
+        "graph":  [sg.left() + (sg.width() - 560) // 2, sg.bottom() - 180],
+        "pedals": [sg.left(), sg.bottom() - 110],
+        "help":   [sg.left() + (sg.width() - 320) // 2, sg.top()],
+        "hidden": [],
     }
+
+
+def _get_hidden():
+    cfg = _load_config()
+    return cfg.get("hidden", [])
+
+
+def _set_hidden(hidden_list):
+    cfg = _load_config()
+    cfg["hidden"] = hidden_list
+    _save_config(cfg)
 
 
 def _config_pos(widget_id):
@@ -166,16 +181,24 @@ def _reset_config():
 def _toggle_config():
     global _config_mode
     _config_mode = not _config_mode
+    hidden = _get_hidden()
     for ov in _all_overlays:
-        _set_click_through(ov, not _config_mode)
         if _config_mode:
+            _set_click_through(ov, False)
             ov.setWindowFlags(ov.windowFlags() | Qt.WindowStaysOnTopHint)
             ov.show()
+        else:
+            if ov._id in hidden:
+                ov.hide()
+                _set_click_through(ov, True)
+            else:
+                _set_click_through(ov, True)
         ov.update()
     if not _config_mode:
-        cfg = {}
+        cfg = _load_config()
         for ov in _all_overlays:
             cfg[ov._id] = [ov.x(), ov.y()]
+        cfg["hidden"] = hidden
         _save_config(cfg)
 
 
@@ -189,6 +212,7 @@ class TelemetryReader:
         self._h_map = None
         self.throttle = 0.0
         self.brake = 0.0
+        self.clutch = 0.0
         self.steering = 0.0
         self.speed = 0.0
         self.rpm = 0.0
@@ -224,6 +248,7 @@ class TelemetryReader:
         try:
             self.throttle = max(0.0, min(1.0, _read_float(p_buf, OFF_THROTTLE)))
             self.brake    = max(0.0, min(1.0, _read_float(p_buf, OFF_BRAKE)))
+            self.clutch   = max(0.0, min(1.0, _read_float(p_buf, OFF_CLUTCH)))
             self.steering = max(-1.0, min(1.0, _read_float(p_buf, OFF_STEERING)))
             self.speed    = max(0.0, _read_float(p_buf, OFF_SPEED))
             self.rpm      = max(0.0, _read_float(p_buf, OFF_RPM))
@@ -368,6 +393,75 @@ class LapOverlay(BaseOverlay):
         p.setFont(QFont("Segoe UI", 11, QFont.Bold))
         p.setPen(C_TEXT)
         p.drawText(8, 56, w - 16, 22, Qt.AlignLeft | Qt.AlignVCenter, last_txt)
+
+        p.end()
+
+
+# =====================================================================
+#  PEDALS OVERLAY (THR/BRK/CLT barras + porcentagem)
+# =====================================================================
+
+class PedalsOverlay(BaseOverlay):
+    def __init__(self, tel):
+        super().__init__(210, 100, tel, "pedals")
+
+    def paintEvent(self, _):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        w, h = self.width(), self.height()
+        tel = self.tel
+
+        bg = BG_CONFIG if _config_mode else BG_PANEL
+        border = C_CONFIG if _config_mode else C_BORDER
+        p.setPen(QPen(border, 1))
+        p.setBrush(bg)
+        p.drawRoundedRect(0, 0, w, h, 6, 6)
+
+        if _config_mode:
+            p.setPen(C_CONFIG)
+            p.setFont(QFont("Segoe UI", 9, QFont.Bold))
+            p.drawText(0, 0, w, h, Qt.AlignCenter, "DRAG TO MOVE")
+            p.end()
+            return
+
+        if not tel.connected:
+            p.setPen(C_TEXT_DIM)
+            p.setFont(QFont("Segoe UI", 8))
+            p.drawText(0, 0, w, h, Qt.AlignCenter, "...")
+            p.end()
+            return
+
+        pedals = [
+            ("THR", tel.throttle, C_THROTTLE),
+            ("BRK", tel.brake,    C_BRAKE),
+            ("CLT", tel.clutch,   C_CLUTCH),
+        ]
+
+        bar_x = 38
+        bar_w = w - bar_x - 45
+        bar_h = 16
+        spacing = 26
+        y = 12
+
+        for label, val, color in pedals:
+            p.setFont(QFont("Segoe UI", 8, QFont.Bold))
+            p.setPen(C_TEXT_DIM)
+            p.drawText(10, y, 24, bar_h + 4, Qt.AlignVCenter | Qt.AlignLeft, label)
+
+            p.setPen(Qt.NoPen)
+            p.setBrush(QColor(30, 30, 30, 220))
+            p.drawRoundedRect(bar_x, y + 2, bar_w, bar_h, 3, 3)
+
+            if val > 0.001:
+                fill = max(4, int(bar_w * val))
+                p.setBrush(color)
+                p.drawRoundedRect(bar_x, y + 2, fill, bar_h, 3, 3)
+
+            p.setPen(C_TEXT)
+            p.setFont(QFont("Segoe UI", 8))
+            p.drawText(bar_x + bar_w + 6, y, 38, bar_h + 4, Qt.AlignVCenter | Qt.AlignLeft, f"{int(val*100)}%")
+
+            y += spacing
 
         p.end()
 
@@ -673,6 +767,33 @@ def criar_tray(app, overlays):
     tray = QSystemTrayIcon(icon)
     tray.setToolTip("AMS2 Telemetry")
     menu = QMenu()
+
+    show_menu = menu.addMenu("Show / Hide")
+    hidden = _get_hidden()
+    widget_names = {"lap": "Lap Times", "dash": "Dash", "graph": "Graph", "pedals": "Pedals"}
+
+    def make_toggle(wid, name):
+        def toggle():
+            h = _get_hidden()
+            ov = next((o for o in overlays if o._id == wid), None)
+            if wid in h:
+                h.remove(wid)
+                if ov:
+                    ov.show()
+            else:
+                h.append(wid)
+                if ov:
+                    ov.hide()
+            _set_hidden(h)
+        return toggle
+
+    for wid, name in widget_names.items():
+        act = QAction(name, checkable=True)
+        act.setChecked(wid not in hidden)
+        act.triggered.connect(make_toggle(wid, name))
+        show_menu.addAction(act)
+
+    menu.addSeparator()
     acao = QAction("Sair")
     acao.triggered.connect(fechar)
     menu.addAction(acao)
@@ -696,14 +817,18 @@ def main():
         graph = GraphOverlay(tel)
         dash  = DashOverlay(tel)
         lap   = LapOverlay(tel)
+        ped   = PedalsOverlay(tel)
         help  = HelpOverlay(tel)
 
-        graph.show()
-        dash.show()
-        lap.show()
-        help.show()
+        overlays = [graph, dash, lap, ped, help]
 
-        overlays = [graph, dash, lap, help]
+        hidden = _get_hidden()
+        for ov in overlays:
+            if ov._id not in hidden:
+                ov.show()
+            else:
+                ov.hide()
+
         tray_icon = criar_tray(app, overlays)
 
         def on_f8():
